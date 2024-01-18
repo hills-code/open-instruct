@@ -23,7 +23,6 @@ import re
 import os
 import pandas as pd
 import argparse
-from instruction_encode_templates import encode_instruction_example, encode_few_shot_example
 from datasets import load_dataset
 
 
