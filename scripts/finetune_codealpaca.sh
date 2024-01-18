@@ -5,16 +5,6 @@ TOTAL_BATCH_SIZE=512
 GRADIENT_ACC_STEPS=$(($TOTAL_BATCH_SIZE/$NUM_GPUS/$BATCH_SIZE_PER_GPU))
 echo "Training llama model ${MODEL_SIZE} using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch size per GPU, $GRADIENT_ACC_STEPS gradient accumulation steps"
 
-export HF_DATASETS_CACHE="/group/40005/chengyuewu/hf_datasets_cache/"
-export TRANSFORMERS_CACHE="/group/40005/chengyuewu/transformers_cache_dir/"
-
-export NO_PROXY=localhost,.woa.com,.oa.com,.tencent.com,tencentcos.cn,myqcloud.com
-export HTTP_PROXY=$ENV_VENUS_PROXY
-export HTTPS_PROXY=$ENV_VENUS_PROXY
-export no_proxy=$NO_PROXY
-export http_proxy=$ENV_VENUS_PROXY
-export https_proxy=$ENV_VENUS_PROXY
-
 deepspeed open_instruct/finetune_trainer.py \
     --deepspeed ds_configs/stage1_no_offloading.conf \
     --model_name_or_path TencentARC/LLaMA-Pro-8B \
