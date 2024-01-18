@@ -34,6 +34,7 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 from finetune import encode_with_prompt_completion_format, encode_with_messages_format
+from customized_trainer import CustomizedTrainer
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,14 @@ class ModelArguments:
     model_revision: str = field(
         default="main",
         metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."},
+    )
+    use_checkpointing: bool = field(
+        default=False, 
+        metadata={
+            "help": (
+                "If passed, will use gradient checkpointing to train the model."
+            )
+        }
     )
     token: str = field(
         default=None,
@@ -118,6 +127,14 @@ class ModelArguments:
                 "set True will benefit LLM loading time and RAM consumption."
             )
         },
+    )
+    extend_layers: Optional[str] = field(
+        default=None, 
+        metadata={
+            "help": (
+                "extend layers idx list"
+            )
+        }
     )
 
 
@@ -173,7 +190,8 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+    if model_args.extend_layers is not None:
+        exec("model_args.extend_layers = " + model_args.extend_layers)
     if model_args.use_auth_token is not None:
         warnings.warn("The `use_auth_token` argument is deprecated and will be removed in Transformers v4.34.", FutureWarning)
         if model_args.token is not None:
@@ -299,23 +317,16 @@ def main():
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
+    model.config.use_cache = False
+    if model_args.use_checkpointing:
+        model.gradient_checkpointing_enable()
+    model.enable_input_require_grads()
+
     # no default pad token for llama!
     # here we add all special tokens again, because the default ones are not in the special_tokens_map
     if isinstance(tokenizer, LlamaTokenizer) or isinstance(tokenizer, LlamaTokenizerFast):
-        num_added_tokens = tokenizer.add_special_tokens({
-            "bos_token": "<s>",
-            "eos_token": "</s>",
-            "unk_token": "<unk>",
-            "pad_token": "<pad>",
-        })
-        assert num_added_tokens in [0, 1], "LlamaTokenizer should only add one special token - the pad_token, or no tokens if pad token present."
-    elif isinstance(tokenizer, GPTNeoXTokenizerFast):
-        num_added_tokens = tokenizer.add_special_tokens({
-            "pad_token": "<pad>",
-        })
-        assert num_added_tokens == 1, "GPTNeoXTokenizer should only add one special token - the pad_token."
-    elif isinstance(tokenizer, GPT2Tokenizer) and isinstance(model, OPTForCausalLM):
-        num_added_tokens = tokenizer.add_special_tokens({'unk_token': '<unk>'})
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # resize embeddings if needed (e.g. for LlamaTokenizer)
     embedding_size = model.get_input_embeddings().weight.shape[0]
@@ -368,12 +379,13 @@ def main():
     # initalize a trainer
     # here we use a custom trainer that moves the model to CPU when saving the checkpoint in FSDP mode
     # we can switch to the default trainer after moving to deepspeed (let's don't change too much for now)
-    trainer = Trainer(
+    trainer = CustomizedTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         tokenizer=tokenizer,
-        data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model),
+        data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer), 
+        extend_layers=model_args.extend_layers, 
     )
 
     # Training

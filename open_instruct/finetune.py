@@ -31,7 +31,7 @@ from transformers import (
     OPTForCausalLM,
     BitsAndBytesConfig,
 )
-from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, TaskType, get_peft_model
 
 logger = get_logger(__name__)
 
@@ -471,8 +471,6 @@ def main():
         model.resize_token_embeddings(len(tokenizer))
 
     if args.use_lora:
-        if args.use_qlora:
-            model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=args.gradient_checkpointing)
 
         logger.info("Initializing LORA model...")
         peft_config = LoraConfig(

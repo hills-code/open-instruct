@@ -31,7 +31,3 @@ flash-attn==2.2.2
 auto-gptq
 fire
 alpaca-eval==0.3.1
-# for human eval web app
-flask
-vllm 
-openpyxl
