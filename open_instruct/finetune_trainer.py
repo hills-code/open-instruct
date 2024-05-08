@@ -33,7 +33,7 @@ from transformers import (
     Trainer,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from finetune import encode_with_prompt_completion_format, encode_with_messages_format
+from finetune import encode_with_prompt_completion_format, encode_with_messages_format, encode_with_pretrain_format
 from customized_trainer import CustomizedTrainer
 
 
@@ -343,6 +343,12 @@ def main():
     elif "messages" in raw_datasets["train"].column_names:
         encode_function = partial(
             encode_with_messages_format,
+            tokenizer=tokenizer,
+            max_seq_length=data_args.max_seq_length,
+        )
+    elif "text" in raw_datasets["train"].column_names:
+        encode_function = partial(
+            encode_with_pretrain_format,
             tokenizer=tokenizer,
             max_seq_length=data_args.max_seq_length,
         )

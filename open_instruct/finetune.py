@@ -339,6 +339,20 @@ def save_with_accelerate(accelerator, model, tokenizer, output_dir, args):
         )
         
 
+def encode_with_pretrain_format(example, tokenizer, max_seq_length):
+    example_text = example['text']
+
+    tokenized_example = tokenizer(example_text, return_tensors='pt', max_length=max_seq_length, truncation=True)
+    input_ids = tokenized_example.input_ids
+    labels = input_ids.clone()
+    # mask the prompt part for avoiding loss
+    attention_mask = torch.ones_like(input_ids)
+    return {
+        'input_ids': input_ids.flatten(),
+        'labels': labels.flatten(),
+        'attention_mask': attention_mask.flatten(),
+    }
+    
 def main():
     args = parse_args()
 
